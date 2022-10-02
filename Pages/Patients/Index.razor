@@ -1,0 +1,220 @@
+﻿@page "/patients"
+@using HealthQues.DTOs
+@using HealthQues.Domain
+@using HealthQues.Repositories.Interfaces
+
+@inject IUserRepository _userRepository
+@inject IPatientRepository _patientRepository
+
+<PageTitle>Manage Patients</PageTitle>
+
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Patients</h1>
+</div>
+
+<div class="row">
+    <div class="col">
+
+        @if (!string.IsNullOrEmpty(operationMessage))
+        {
+            <div class="alert alert-success" role="alert">
+                @operationMessage
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+
+    <AuthorizeView Roles="Admin,Adviser">
+        <div class="col-md-3">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Add Patient</h6>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@patient" OnValidSubmit="@HandleValidSubmit" Context=formContext>
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+                        <div class="row">
+                            <div class="col">
+                                <div class="mb-3">
+                                    <label for="@patient.PatientId" class="form-label">Patient</label>
+                                    <InputSelect id="PatientId" @bind-Value="patient.PatientId" class="form-control">
+
+                                        @if (users != null)
+                                        {
+                                            <option value="">Select Patient</option>
+
+                                            @foreach (var user in users.Where(a => a.Role == "Patient"))
+                                            {
+                                                <option value="@user.ID">@user.DisplayName</option>
+                                            }
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col">
+                                <div class="mb-3">
+                                    <label for="@patient.PhysicianId" class="form-label">Physician</label>
+                                    <InputSelect id="PhysicianId" @bind-Value="patient.PhysicianId" class="form-control">
+                                        @if (users != null)
+                                        {
+                                            <option value="">Select Physician</option>
+
+                                            @foreach (var user in users.Where(a => a.Role == "Physician"))
+                                            {
+
+                                                <option value="@user.ID">@user.DisplayName</option>
+                                            }
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Patient</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </AuthorizeView>
+
+    <div class="col-md-9">
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Patients List</h6>
+            </div>
+            <div class="card-body">
+                @if (patients == null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Physician</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var patientItem in patients)
+                            {
+                                <tr>
+                                    <td>@patientItem.PatientUser.DisplayName</td>
+                                    <td>@patientItem.PhysicianUser.DisplayName</td>
+                                    <td>
+                                        <AuthorizeView Roles="Admin,Adviser">
+                                            <NavLink class="btn btn-sm btn-secondary" href="@($"/patients/assignments/{patientItem.Id}")">
+                                                Questionnaires
+                                            </NavLink>
+                                            <button class="btn btn-sm btn-info" @onclick="() => EditLoadPatient(patientItem)">
+                                                Edit
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => DeletePatient(patientItem)">
+                                                Remove
+                                            </button>
+                                        </AuthorizeView>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    private Patient patient = new();
+    private List<UserDto> users;
+    private IEnumerable<Patient> patients;
+    private string operationMessage = string.Empty;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+
+        if (user.IsInRole("Admin") || user.IsInRole("Adviser"))
+            await LoadUsers();
+
+        await LoadPatients();
+    }
+
+    private async void HandleValidSubmit()
+    {
+        if (patients.Where(a => a.PatientId == patient.PatientId && a.PhysicianId == patient.PhysicianId).Any())
+        {
+            operationMessage = "Patient is already added.";
+        }
+        else
+        {
+            var result = await _patientRepository.AddUpdate(patient);
+
+            if (result > 0)
+            {
+                await LoadPatients();
+                operationMessage = "Patient has been added.";
+                await Task.Delay(3000);
+                operationMessage = string.Empty;
+                patient.PatientId = null;
+                patient.PhysicianId = null;
+                patient.Id = 0;
+                StateHasChanged();
+
+            }
+        }
+    }
+
+    public void EditLoadPatient(Patient patientItem)
+    {
+        patient.PatientId = patientItem.PatientId;
+        patient.PhysicianId = patientItem.PhysicianId;
+        patient.Id = patientItem.Id;
+    }
+
+    public async void DeletePatient(Patient patientItem)
+    {
+        var result = await _patientRepository.Delete(patientItem);
+
+        if (result > 0)
+        {
+            await LoadPatients();
+            operationMessage = "Patient has been removed.";
+            await Task.Delay(3000);
+            operationMessage = string.Empty;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadUsers() => users = await _userRepository.GetUsersList();
+
+    private async Task LoadPatients()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+        string physicianId = null;
+
+        if (!user.IsInRole("Admin") && !user.IsInRole("Adviser"))
+        {
+            physicianId = user.FindFirst(a => a.Type.Contains("nameidentifier"))?.Value;
+            //patients = patients.Where(a => a.PhysicianId == userId).ToList();
+        }
+
+        patients = _patientRepository.GetList(physicianId).ToList();
+
+    }
+
+}

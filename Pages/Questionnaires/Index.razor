@@ -1,0 +1,157 @@
+﻿@page "/questionnaires"
+@using HealthQues.DTOs
+@using HealthQues.Domain
+@using HealthQues.Repositories.Interfaces
+
+@inject IUserRepository _userRepository
+@inject IQuestionnaireRepository _questionnaireRepository
+
+<PageTitle>Manage Questionnaires</PageTitle>
+
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Questionnaires</h1>
+</div>
+
+<div class="row">
+    <div class="col">
+        @if (!string.IsNullOrEmpty(operationMessage))
+        {
+            <div class="alert alert-success" role="alert">
+                @operationMessage
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+
+    <div class="col-md-5">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Add Questionnaire</h6>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@questionnaire" OnValidSubmit="@HandleValidSubmit">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    <div class="row">
+                        <div class="col">
+                            <div class="mb-3">
+                                <label for="@questionnaire.Title" class="form-label">Title</label>
+                                <InputText id="title" class="form-control" @bind-Value="questionnaire.Title" />
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Questionnaire List</h6>
+            </div>
+            <div class="card-body">
+                @if (questionnaires == null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in questionnaires)
+                            {
+                                <tr>
+                                    <td>@item.Title</td>
+                                    <td>
+                                        <AuthorizeView Roles="Admin,Adviser">
+                                           @* <NavLink class="btn btn-sm btn-secondary" href="@($"questions/{item.Id}")">
+                                                Add Questions
+                                            </NavLink>*@
+                                            <button class="btn btn-sm btn-info" @onclick="() => EditLoad(item)">
+                                                Edit
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => Delete(item)">
+                                                Remove
+                                            </button>
+                                        </AuthorizeView>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@code {
+
+    private Questionnaire questionnaire = new();
+    private IList<Questionnaire> questionnaires;
+    private string operationMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        LoadData();
+        await Task.Delay(100);
+    }
+
+    private void LoadData()
+    {
+        questionnaires = _questionnaireRepository.GetList().ToList();
+    }
+
+    private async void HandleValidSubmit()
+    {
+        if (questionnaires.Where(a => a.Title == questionnaire.Title).Any())
+        {
+            operationMessage = "Questionnaire is already added.";
+        }
+        else
+        {
+            var result = await _questionnaireRepository.AddUpdate(questionnaire);
+
+            if (result > 0)
+            {
+                LoadData();
+                operationMessage = "Questionnaire has been added.";
+                questionnaire.Title = null;
+                questionnaire.Id = 0;
+                //StateHasChanged();
+
+            }
+        }
+    }
+
+    public void EditLoad(Questionnaire questionnaireItem)
+    {
+        questionnaire.Title = questionnaireItem.Title;
+        questionnaire.Id = questionnaireItem.Id;
+    }
+
+    public async void Delete(Questionnaire questionnaireItem)
+    {
+        var result = await _questionnaireRepository.SoftDelete(questionnaireItem);
+
+        if (result > 0)
+        {
+            LoadData();
+            operationMessage = "Questionnaire has been removed.";
+            StateHasChanged();
+        }
+    }
+
+}

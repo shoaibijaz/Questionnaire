@@ -1,0 +1,119 @@
+﻿@page "/me/questionnaires/take/{Id:int}"
+@using HealthQues.Domain
+@using HealthQues.Repositories.Interfaces
+@inject IPatientQuestionnaireRespository _patientQuestRepository
+@inject IQuestionRepository _questionRepository
+@inject IPatientAnswerRepository _patientAnsRepository
+
+<PageTitle>Take Questionnaire</PageTitle>
+
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Take Questionnaire</h1>
+</div>
+
+<div class="row">
+
+    @if (currentQuestion != null)
+    {
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Question - @currentQuestion.Title</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        @foreach (var item in currentQuestion.Answers)
+                        {
+                            <li class="list-group-item">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="ans_@currentQuestion.Id" id="ans_@currentQuestion.Id" value="@item.Id" @onchange="OnChange" />
+                                    <label class="form-check-label" for="ans_@currentQuestion.Id">
+                                        @item.Title
+                                    </label>
+                                </div>
+
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-sm btn-danger" @onclick="() => Next()">
+                        Save & Next
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    private string UserId = string.Empty;
+
+    private int QuestionNumber = 0;
+
+    private PatientQuestionnaire patientQuestionnaire;
+    private List<Question> questions;
+    private Question currentQuestion;
+    private int SelectedAnswer = 0;
+
+    private string operationMessage = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Task.Delay(100);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadList();
+
+        QuestionNumber = 1;
+        currentQuestion = questions[0];
+    }
+
+    private async Task LoadList()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+        UserId = user.FindFirst(a => a.Type.Contains("nameidentifier"))?.Value;
+
+        patientQuestionnaire = _patientQuestRepository.GetList().FirstOrDefault(a => a.Id == Id);
+
+        questions = _questionRepository.GetQuestions(patientQuestionnaire.QuestionnaireId).ToList();
+    }
+
+    private void OnChange(ChangeEventArgs args)
+    {
+        SelectedAnswer = Convert.ToInt32(args.Value);
+    }
+
+    private async Task Next()
+    {
+        if (SelectedAnswer > 0)
+        {
+            await _patientAnsRepository.Add(new PatientAnswer()
+                {
+                    PatientQuestionnaireId = Id,
+                    AnswerId = SelectedAnswer
+                });
+        }
+        if (QuestionNumber < questions.Count)
+        {
+            currentQuestion = questions[QuestionNumber];
+            QuestionNumber++;
+        }
+
+
+    }
+
+
+
+}

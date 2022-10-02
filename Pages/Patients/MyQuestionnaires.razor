@@ -1,0 +1,102 @@
+﻿@page "/me/questionnaires"
+@using HealthQues.DTOs
+@using HealthQues.Domain
+@using HealthQues.Repositories.Interfaces
+
+@inject IUserRepository _userRepository
+@inject IPatientRepository _patientRepository;
+@inject IQuestionnaireRepository _questionnaireRepository
+@inject IPatientQuestionnaireRespository _patientQuestRepository
+
+<PageTitle>My Questionnaire</PageTitle>
+
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">My Questionnaire</h1>
+</div>
+
+<div class="row">
+    <div class="col">
+
+        @if (!string.IsNullOrEmpty(operationMessage))
+        {
+            <div class="alert alert-success" role="alert">
+                @operationMessage
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+
+    <div class="col-md-12">
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Questionnaire List</h6>
+            </div>
+            <div class="card-body">
+                @if (patientQuestionnaires == null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Questionnaire</th>
+                                <th>Status</th>
+                                <th>Score</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var patientItem in patientQuestionnaires)
+                            {
+                                <tr>
+                                    <td>@patientItem.Questionnaire.Title</td>
+                                    <td>@patientItem.Status</td>
+                                    <td>@patientItem.Score</td>
+                                    <td>
+                                        <NavLink class="btn btn-sm btn-secondary" href="@($"/me/questionnaires/take/{patientItem.Id}")">
+                                            Take
+                                        </NavLink>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    private IEnumerable<PatientQuestionnaire> patientQuestionnaires;
+    private string operationMessage = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Task.Delay(1);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadList();
+    }
+
+    private async Task LoadList()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+        string userId = user.FindFirst(a => a.Type.Contains("nameidentifier"))?.Value;
+
+        patientQuestionnaires = _patientQuestRepository.GetList().Where(a => a.Patient.PatientId == userId).ToList();
+    }
+
+}

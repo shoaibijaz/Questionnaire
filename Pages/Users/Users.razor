@@ -1,0 +1,98 @@
+﻿@page "/users"
+@using HealthQues.Domain
+@using HealthQues.DTOs
+@using HealthQues.Repositories
+@using HealthQues.Repositories.Interfaces
+
+@inject IUserRepository _userRepository
+
+<PageTitle>Manage Users</PageTitle>
+
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Users</h1>
+    <NavLink class="btn btn-sm btn-success shadow-sm" href="/users/add">
+        <i class="fas fa-plus fa-sm"></i>  Add New User
+    </NavLink>
+</div>
+
+<div class="row">
+    <div class="col">
+
+        @if (!string.IsNullOrEmpty(messageAlert))
+        {
+            <div class="alert alert-info" role="alert">
+                @messageAlert
+            </div>
+        }
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Users</h6>
+            </div>
+
+
+            <div class="card-body">
+                @if (users == null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in users)
+                            {
+                                <tr>
+                                    <td>@user.Name</td>
+                                    <td>@user.Email</td>
+                                    <td>@user.Role</td>
+                                    <td>
+                                        <NavLink class="btn btn-sm btn-info" href="@($"users/add/{user.ID}")">
+                                            Edit
+                                        </NavLink>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteUser(user)">
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<UserDto> users;
+    private string messageAlert = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadUsers();
+
+    private async Task LoadUsers() => users = await _userRepository.GetUsersList();
+
+    public async void DeleteUser(UserDto user)
+    {
+        var result = await _userRepository.DeleteUser(user);
+
+        if (result.IdentityResult.Succeeded && users != null)
+        {
+            users = users.Where(a => a.ID != user.ID).ToList();
+            messageAlert = "User has been deleted";
+            StateHasChanged();
+
+            await Task.Delay(2000);
+            messageAlert = string.Empty;
+            StateHasChanged();
+        }
+    }
+}

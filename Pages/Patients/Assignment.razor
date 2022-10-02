@@ -1,0 +1,200 @@
+﻿@page "/patients/assignments/{PatientId:int}"
+@using HealthQues.DTOs
+@using HealthQues.Domain
+@using HealthQues.Repositories.Interfaces
+
+@inject IUserRepository _userRepository
+@inject IPatientRepository _patientRepository;
+@inject IQuestionnaireRepository _questionnaireRepository
+@inject IPatientQuestionnaireRespository _patientQuestRepository
+
+<PageTitle>Manage Patients Questionnaire</PageTitle>
+
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Manage Patients Questionnaire</h1>
+</div>
+
+<div class="row">
+    <div class="col">
+
+        @if (!string.IsNullOrEmpty(operationMessage))
+        {
+            <div class="alert alert-success" role="alert">
+                @operationMessage
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+
+    <AuthorizeView Roles="Admin,Adviser">
+        <div class="col-md-3">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Add Patient</h6>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@patientQuest" OnValidSubmit="@HandleValidSubmit" Context=formContext>
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+                        <div class="row">
+                            <div class="col">
+                                <div class="mb-3">
+                                    <label for="@patientQuest.PatientId" class="form-label">Patient</label>
+                                    <InputSelect id="PatientId" @bind-Value="patientQuest.PatientId" class="form-control">
+
+                                        @if (patients != null)
+                                        {
+                                            <option value="">Select Patient</option>
+
+                                            @foreach (var item in patients)
+                                            {
+                                                <option value="@item.Id">@item.PatientUser.DisplayName</option>
+                                            }
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col">
+                                <div class="mb-3">
+                                    <label for="@patientQuest.QuestionnaireId" class="form-label">Questionnaire</label>
+                                    <InputSelect id="QuestionnaireId" @bind-Value="patientQuest.QuestionnaireId" class="form-control">
+
+                                        @if (patients != null)
+                                        {
+                                            <option value="">Select Questionnaire</option>
+
+                                            @foreach (var item in questionnaires)
+                                            {
+                                                <option value="@item.Id">@item.Title</option>
+                                            }
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </AuthorizeView>
+
+   <div class="col-md-9">
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Questionnaire List</h6>
+            </div>
+            <div class="card-body">
+                @if (patientQuestionnaires == null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Questionnaire</th>
+                                <th>Status</th>
+                                <th>Score</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var patientItem in patientQuestionnaires)
+                            {
+                                <tr>
+                                    <td>@patientItem.Patient.PatientUser.DisplayName</td>
+                                    <td>@patientItem.Questionnaire.Title</td>
+                                    <td>@patientItem.Status</td>
+                                    <td>@patientItem.Score</td>
+                                    <td>
+                                        <AuthorizeView Roles="Admin,Adviser">
+                                            <button class="btn btn-sm btn-danger" @onclick="() => Delete(patientItem)">
+                                                Remove
+                                            </button>
+                                        </AuthorizeView>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public int PatientId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    private PatientQuestionnaire patientQuest = new();
+    private List<Patient> patients;
+    private IList<Questionnaire> questionnaires;
+    private IEnumerable<PatientQuestionnaire> patientQuestionnaires;
+    private string operationMessage = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Task.Delay(100);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        LoadData();
+        LoadList();
+        await Task.Delay(1);
+        patientQuest.PatientId = PatientId;
+    }
+
+    private async void HandleValidSubmit()
+    {
+
+        var result = await _patientQuestRepository.Add(patientQuest);
+
+        if (result > 0)
+        {
+            LoadList();
+            operationMessage = "Patient has been added.";
+            StateHasChanged();
+        }
+    }
+
+    public async void Delete(PatientQuestionnaire patientItem)
+    {
+        var result = await _patientQuestRepository.Delete(patientItem);
+
+        if (result > 0)
+        {
+            LoadList();
+            operationMessage = "Questionnaire has been removed.";
+            StateHasChanged();
+        }
+    }
+
+    private void LoadData()
+    {
+        patients = _patientRepository.GetList(null).Where(a => a.Id == PatientId).ToList();
+        questionnaires = _questionnaireRepository.GetList().ToList();
+    }
+
+
+    private void LoadList()
+    {
+        patientQuestionnaires = _patientQuestRepository.GetList().ToList();
+    }
+
+}

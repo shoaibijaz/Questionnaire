@@ -1,0 +1,220 @@
+﻿@page "/users/add"
+@page "/users/add/{UserId}"
+@using HealthQues.DTOs
+@using HealthQues.Repositories.Interfaces
+@using Microsoft.AspNetCore.Identity
+@inject RoleManager<IdentityRole> _roleManager
+@inject IUserRepository _userRepository
+@inject NavigationManager MyNavigationManager
+
+<PageTitle>Update User</PageTitle>
+
+@if (!string.IsNullOrEmpty(UserId))
+{
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Updat User</h1>
+        <NavLink class="btn btn-sm btn-info shadow-sm" href="/users/">
+            <i class="fas fa-angle-left fa-sm"></i>  Back Users
+        </NavLink>
+    </div>
+}
+else
+{
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Add New User</h1>
+        <NavLink class="btn btn-sm btn-info shadow-sm" href="/users/">
+            <i class="fas fa-angle-left fa-sm"></i>  Back Users
+        </NavLink>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">User Information</h6>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@userDto" OnValidSubmit="@HandleValidSubmit">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="@userDto.DisplayName" class="form-label">Display Name</label>
+                                <InputText id="name" class="form-control" @bind-Value="userDto.DisplayName" />
+                                <ValidationMessage For="@(() => userDto.DisplayName)" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="@userDto.Name" class="form-label">Login Name</label>
+                                <InputText id="name" class="form-control" @bind-Value="userDto.Name" />
+                                <ValidationMessage For="@(() => userDto.Name)" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="@userDto.Email" class="form-label">Email</label>
+                                <InputText id="name" class="form-control" @bind-Value="userDto.Email" />
+                                <ValidationMessage For="@(() => userDto.Email)" />
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="row">
+
+                        @if (string.IsNullOrEmpty(UserId))
+                        {
+                            <div class="col-md-4" hidden="@(string.IsNullOrEmpty(UserId)?false:true)">
+                                <div class="mb-3">
+                                    <label for="@userDto.Password" class="form-label">Password</label>
+                                    <InputText type="password" @bind-Value="@userDto.Password" class="form-control" />
+                                    <ValidationMessage For="@(() => userDto.Password)" />
+                                </div>
+                            </div>
+                        }
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="@userDto.Role" class="form-label">Role</label>
+                                <InputSelect id="role" @bind-Value="userDto.Role" class="form-control">
+                                    @if (roles != null)
+                                    {
+                                        @foreach (var role in roles)
+                                        {
+
+                                            <option value="@role.Name">@role.Name</option>
+                                        }
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Submit</button>
+
+
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(UserId))
+    {
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Change Password</h6>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@passwordResetDto" OnValidSubmit="@HandleChangePassword">
+                        <DataAnnotationsValidator />
+
+                        <div class="row">
+                            <div class="col">
+                                <div class="mb-3">
+                                    <label for="@passwordResetDto.Password" class="form-label">Enter Password</label>
+                                    <InputText type="password" class="form-control" @bind-Value="passwordResetDto.Password" />
+                                    <ValidationMessage For="@(() => passwordResetDto.Password)" />
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Password</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+<div class="row">
+    <div class="col">
+
+        @if (formErrors.Count > 0)
+        {
+            <div class="alert alert-danger" role="alert">
+                @string.Join("<br />", formErrors)
+            </div>
+
+        }
+
+        @if (!string.IsNullOrEmpty(formMessage))
+        {
+            <div class="alert alert-success" role="alert">
+                @formMessage
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public string UserId { get; set; }
+    private UserDto userDto = new();
+    private PasswordResetDto passwordResetDto = new();
+    private List<IdentityRole> roles;
+    private List<string> formErrors = new List<string>();
+    private string formMessage = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(UserId))
+        {
+            userDto = await _userRepository.GetUser(UserId);
+            passwordResetDto.ID = UserId;
+
+            // fake hardcoding the password on update, but it will not update
+            userDto.Password = "xxxx";
+        }
+
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        roles = _roleManager.Roles.ToList();
+        userDto.Role = roles[0].Name;
+        await Task.Delay(100); await Task.Delay(2000); // not the good approach but for demo only
+    }
+
+    private async void HandleValidSubmit()
+    {
+        formErrors.Clear();
+
+        var result = await _userRepository.AddUpdate(userDto);
+
+        if (result.IdentityResult.Succeeded)
+        {
+            formMessage = "User has been added";
+            await Task.Delay(2000); // not the good approach but for demo only.
+            MyNavigationManager.NavigateTo("users", true);
+        }
+        else
+        {
+            formErrors = result.IdentityResult.Errors.Select(a => a.Code).ToList();
+        }
+    }
+
+    private async void HandleChangePassword()
+    {
+        formErrors.Clear();
+
+        var result = await _userRepository.ResetPassword(passwordResetDto);
+
+        if (result.IdentityResult.Succeeded)
+        {
+            formMessage = "User password has been updated.";
+            passwordResetDto.Password = null;
+        }
+        else
+        {
+            formErrors = result.IdentityResult.Errors.Select(a => a.Code).ToList();
+        }
+
+        StateHasChanged();
+    }
+}
